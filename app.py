@@ -3,8 +3,10 @@ import os
 import cv2
 import numpy as np
 from scoreboard_reader import functions as srf
+import logging
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
 @app.route('/process_image', methods=['POST'])
 def process_image():
@@ -36,5 +38,5 @@ def process_image():
 if __name__ == '__main__':
     if not os.path.exists('output'):
         os.makedirs('output')
-    app.run(host='0.0.0.0', port=8080)
-
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=False)

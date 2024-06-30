@@ -460,7 +460,7 @@ class functions:
         n=0
         output=[]
         scale = 10
-        print("Reading each players stats, please wait.")
+        logging.info("Reading each players stats, please wait.")
         for row in tqdm(cell_images_rows):
             temp_output=[]
             n+=1
