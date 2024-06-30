@@ -4,6 +4,7 @@ Code has been optimised for reading screenshots of final scoreboard in the game 
 Lots of code is utilised from https://github.com/eihli/image-table-ocr#org67b1fc2
 '''
 import sys
+import os
 import cv2
 import numpy as np
 import pytesseract
@@ -13,13 +14,15 @@ import csv
 import json
 from tqdm import tqdm
 from PIL import Image,ImageFilter
+from agent_recognisition import find_matching_agent, load_images_from_folder
+
 
 #Setting up tesseract - only needs this if you have directly installed tesseract (I think).
 pytesseract.pytesseract.tesseract_cmd = "tesseract"
 
 class functions:
 
-    def find_tables(image):
+    def find_tables(image, image_colored):
         """
         Given an input image, detects and extracts tables from the image.
         
@@ -75,9 +78,10 @@ class functions:
         # here though which would only have 4 intersections, 1 at each corner.
         # Leaving that step as a future TODO if it is ever necessary.
         images = [image[y:y+h, x:x+w] for x, y, w, h in bounding_rects]
-        return images[0]
+        images_colored = [image_colored[y:y+h, x:x+w] for x, y, w, h in bounding_rects]
+        return images[0], images_colored[0]
 
-    def extract_cell_images_from_table(image):
+    def extract_cell_images_from_table(image,image_colored):
         """
         Extracts cell images from a table image.
 
@@ -175,16 +179,22 @@ class functions:
         
         rows.sort(key=avg_height_of_center)
         cell_images_rows = []
+        headshot_images_rows = []
         for row in rows:
             cell_images_row = []
+            headshot_images_row = []
             for x, y, w, h in row:
-                offset = 55
-                x = x + offset
-                w = w - offset
+                headshot_offset = 55
+                headshot_images_row.append(image_colored[y:y+h, x:x+headshot_offset])
+                x = x + headshot_offset
+                w = w - headshot_offset
                 cell_images_row.append(image[y:y+h, x:x+w])
             cell_images_rows.append(cell_images_row)
+            headshot_images_rows.append(headshot_images_row)
 
-        return cell_images_rows
+        
+        # return
+        return cell_images_rows, headshot_images_rows
 
     def crop_to_text(image):
         """
@@ -505,25 +515,27 @@ class functions:
         # output = sorted(output,  key=lambda x: x[0])
         return output
 
-    def write_csv(output, delim):
+    def write_csv(output, agents, delim):
         """
         Writes the output list to a CSV file named "scoreboard.csv" and returns the data.
 
         Parameters:
         output (list): A list of lists containing the data to write to the CSV file.
+        agents (list): A list of agent names corresponding to each row.
         delim (str): The delimiter to use in the CSV file.
 
         Returns:
         list: The data that was written to the CSV file.
         """
-        #Write the output file in csv format. 
-        delim = delim        
+        # Write the output file in csv format.
         with open('output/scoreboard.csv', 'w', newline='') as f:
             writer = csv.writer(f, delimiter=delim)
-            writer.writerows(output)
+            # Add agents as the first column
+            for agent, row in zip(agents, output):
+                writer.writerow([agent] + row)
         return output
 
-    def write_json(output):
+    def write_json(output, agents):
         """
         Writes the data to a JSON file named "scoreboard.json".
 
@@ -534,10 +546,42 @@ class functions:
         None
         """
         # Assuming the first row contains headers
-        headers = ["name", "acs", "kill", "death", "assist", "econ_rating", "first_bloods", "plants", "defuses"]
+        headers = ["agent","name", "acs", "kill", "death", "assist", "econ_rating", "first_bloods", "plants", "defuses"]
         json_data = []
-        for row in output:  # Don't skip the first row
+        for agent, row in zip(agents, output):
+            row.insert(0, agent)
             json_data.append(dict(zip(headers, row)))
         
         with open('output/scoreboard.json', 'w') as f:
             json.dump(json_data, f, indent=2)
+
+    def identify_agents(headshots_images_rows):
+        """
+        Identifies agents from the headshot images.
+
+        Parameters:
+        headshots (List[numpy.ndarray]): A list of headshot images.
+
+        Returns:
+        List[str]: A list of agent names.
+        """
+        # Load reference images and agent names
+        reference_folder = './agent-images'
+        reference_images, agent_names = load_images_from_folder(reference_folder)
+        
+        identified_agents = []
+        n=0
+        temp_image_path = './temp_headshot.png'
+        for row in headshots_images_rows:
+            n+=1
+            # Save the headshot temporarily
+            cv2.imwrite(temp_image_path, row[0])
+            
+            # Identify the agent
+            agent_name = find_matching_agent(temp_image_path, reference_images, agent_names)
+            identified_agents.append(agent_name)
+        
+        # remove temp_headshot.png
+        os.remove(temp_image_path)
+        
+        return identified_agents

@@ -23,26 +23,23 @@ image_filename = input("Please input the name of your screenshot (default is scr
 if image_filename == "":
     image_filename = "screenshot.png"
 image = cv2.imread(image_filename, cv2.IMREAD_GRAYSCALE)
-image = srf.find_tables(image)
-#cv2.imwrite("table.png",image)
+image_colored = cv2.imread(image_filename)
+image, image_colored = srf.find_tables(image,image_colored)
 
-#Extracts each row of elements from the table
-cell_images_rows = srf.extract_cell_images_from_table(image)
+# #Extracts each row of elements from the table
+cell_images_rows,headshots_images_rows = srf.extract_cell_images_from_table(image,image_colored)
+
+agents = srf.identify_agents(headshots_images_rows)
+
 
 #Reads the extracted rows and converts them to a list of lists.
 output = srf.read_table_rows(cell_images_rows)
 
-#Writes the output.
-inp = input("Do you want your CSV in EU or UK format?   ")
-if inp == "EU":
-    delim=';'
-elif inp == "UK":
-    delim=","
-else:
-    delim = ","
 
-srf.write_csv(output, delim)
-
-srf.write_json(output)
+srf.write_csv(output,agents, ",")
+srf.write_json(output,agents)
     
 print("Done. Output written to scoreboard.csv and scoreboard.json.")
+
+
+
