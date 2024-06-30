@@ -10,6 +10,7 @@ import pytesseract
 import subprocess
 import math
 import csv
+import json
 from tqdm import tqdm
 from PIL import Image,ImageFilter
 
@@ -182,6 +183,7 @@ class functions:
                 w = w - offset
                 cell_images_row.append(image[y:y+h, x:x+w])
             cell_images_rows.append(cell_images_row)
+
         return cell_images_rows
 
     def crop_to_text(image):
@@ -452,7 +454,7 @@ class functions:
         for row in tqdm(cell_images_rows):
             temp_output=[]
             n+=1
-            #cv2.imwrite("test_rows" +str(n) + ".png", row[0]) # for debugging
+            # cv2.imwrite("test_rows" +str(n) + ".png", row[0]) # for debugging
             image=row[0]
             
             #Seperate rows
@@ -470,10 +472,10 @@ class functions:
             #This is in here for debugging.
             #Draw on each cell to check
             #This makes the code bug out. Helpful to debug and see the boxes but seems to draw rectangles on wrong image?
-            #for cnt in cells:
-             #   x, y, w, h = cnt
-             #   cv2.rectangle(image_copy, (x, y), (x + w, y + h), (0, 0, 255), 2)
-            #cv2.imwrite("yo.png", image)
+            # for cnt in cells:
+            #    x, y, w, h = cnt
+            #    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            # cv2.imwrite("yo.png", image)
             
             #Process image for OCR
             image=functions.image_process(image)
@@ -499,21 +501,43 @@ class functions:
                 temp_output.append(str(ocr_cropped).strip())  
             temp_output = [e for e in temp_output if e]
             output.append(temp_output)
-        output = sorted(output,  key=lambda x: x[0])
+        # remove the sorting step
+        # output = sorted(output,  key=lambda x: x[0])
         return output
 
-    def write_csv(output,delim):
+    def write_csv(output, delim):
         """
-        Writes the output list to a CSV file named "scoreboard.csv".
+        Writes the output list to a CSV file named "scoreboard.csv" and returns the data.
 
         Parameters:
         output (list): A list of lists containing the data to write to the CSV file.
+        delim (str): The delimiter to use in the CSV file.
+
+        Returns:
+        list: The data that was written to the CSV file.
+        """
+        #Write the output file in csv format. 
+        delim = delim        
+        with open('output/scoreboard.csv', 'w', newline='') as f:
+            writer = csv.writer(f, delimiter=delim)
+            writer.writerows(output)
+        return output
+
+    def write_json(output):
+        """
+        Writes the data to a JSON file named "scoreboard.json".
+
+        Parameters:
+        data (list): A list of lists containing the data to write to the JSON file.
 
         Returns:
         None
         """
-        #Write the output file in csv format. 
-        delim = delim        
-        with open('scoreboard.csv', 'w', newline='') as f:
-            writer = csv.writer(f,delimiter=delim)
-            writer.writerows(output)
+        # Assuming the first row contains headers
+        headers = ["name", "acs", "kill", "death", "assist", "econ_rating", "first_bloods", "plants", "defuses"]
+        json_data = []
+        for row in output:  # Don't skip the first row
+            json_data.append(dict(zip(headers, row)))
+        
+        with open('output/scoreboard.json', 'w') as f:
+            json.dump(json_data, f, indent=2)

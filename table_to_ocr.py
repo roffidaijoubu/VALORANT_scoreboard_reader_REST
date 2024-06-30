@@ -10,6 +10,7 @@ import pytesseract
 import subprocess
 import math
 import csv
+import json
 from tqdm import tqdm
 from PIL import Image,ImageFilter
 from scoreboard_reader import functions as srf
@@ -18,7 +19,9 @@ from scoreboard_reader import functions as srf
 pytesseract.pytesseract.tesseract_cmd = "tesseract"
 
 #Reads in your file and crops out the table using find_tables
-image_filename = input("Please input the name of your screenshot i.e ScreenShot.png:   ")
+image_filename = input("Please input the name of your screenshot (default is screenshot.png):   ")
+if image_filename == "":
+    image_filename = "screenshot.png"
 image = cv2.imread(image_filename, cv2.IMREAD_GRAYSCALE)
 image = srf.find_tables(image)
 #cv2.imwrite("table.png",image)
@@ -36,7 +39,10 @@ if inp == "EU":
 elif inp == "UK":
     delim=","
 else:
-    print("You must choose between EU and UK")
+    delim = ","
+
 srf.write_csv(output, delim)
+
+srf.write_json(output)
     
-print("Done. Output written to scoreboard.csv.")
+print("Done. Output written to scoreboard.csv and scoreboard.json.")
