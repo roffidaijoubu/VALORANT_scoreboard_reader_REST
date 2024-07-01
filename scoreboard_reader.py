@@ -187,8 +187,9 @@ class functions:
             for x, y, w, h in row:
                 headshot_offset = 55
                 headshot_images_row.append(image_colored[y:y+h, x:x+headshot_offset])
-                x = x + headshot_offset
-                w = w - headshot_offset
+                offset = 55
+                x = x + offset
+                w = w - offset
                 cell_images_row.append(image[y:y+h, x:x+w])
             cell_images_rows.append(cell_images_row)
             headshot_images_rows.append(headshot_images_row)
@@ -465,7 +466,7 @@ class functions:
         for row in cell_images_rows:
             temp_output=[]
             n+=1
-            # cv2.imwrite("test_rows" +str(n) + ".png", row[0]) # for debugging
+            # cv2.imwrite("debug/test_rows" +str(n) + ".png", row[0]) # for debugging
             image=row[0]
             
             #Seperate rows
@@ -486,17 +487,20 @@ class functions:
             # for cnt in cells:
             #    x, y, w, h = cnt
             #    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
-            # cv2.imwrite("yo.png", image)
+            # cv2.imwrite("debug/yo-" + str(n) + ".png", image)
             
             #Process image for OCR
             image=functions.image_process(image)
             name=image[0:100*scale,0:300*scale]
-            #cv2.imwrite("name.png",name)
+            # cv2.imwrite("debug/name-" + str(n) + ".png",name)
             
             #OCR the name.
-            ocr_name=functions.ocr_image(name, '-c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/ --psm 7', 'eng')
+            ocr_name = functions.ocr_image(name, '-c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/_ --psm 7', 'eng+kor+jpn+chi_sim')
+            if str(ocr_name).strip() == "":
+                ocr_name = "err"
             temp_output.append(str(ocr_name).strip())
-            
+            logging.info("Name: " + str(ocr_name).strip())
+
             #OCR each cell to get numbers
             for c, cnt in enumerate(cells):
                 x, y, w, h = cnt

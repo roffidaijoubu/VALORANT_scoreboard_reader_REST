@@ -3,7 +3,7 @@
 
 #ignore files in output folder
 output/*
-
+debug/*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
