@@ -12,9 +12,10 @@ import subprocess
 import math
 import csv
 import json
-from tqdm import tqdm
+import logging
 from PIL import Image,ImageFilter
-from agent_recognisition import find_matching_agent, load_images_from_folder
+from agent_recognition import find_matching_agent, load_images_from_folder
+from team_recognition import assign_team
 
 
 #Setting up tesseract - only needs this if you have directly installed tesseract (I think).
@@ -461,7 +462,7 @@ class functions:
         output=[]
         scale = 10
         logging.info("Reading each players stats, please wait.")
-        for row in tqdm(cell_images_rows):
+        for row in cell_images_rows:
             temp_output=[]
             n+=1
             # cv2.imwrite("test_rows" +str(n) + ".png", row[0]) # for debugging
@@ -515,7 +516,7 @@ class functions:
         # output = sorted(output,  key=lambda x: x[0])
         return output
 
-    def write_csv(output, agents, delim):
+    def write_csv(output, agents, teams, delim, file_obj=None):
         """
         Writes the output list to a CSV file named "scoreboard.csv" and returns the data.
 
@@ -523,37 +524,61 @@ class functions:
         output (list): A list of lists containing the data to write to the CSV file.
         agents (list): A list of agent names corresponding to each row.
         delim (str): The delimiter to use in the CSV file.
+        file_obj (file-like object): Optional file-like object to write the CSV content to.
 
         Returns:
         list: The data that was written to the CSV file.
         """
-        # Write the output file in csv format.
-        with open('output/scoreboard.csv', 'w', newline='') as f:
-            writer = csv.writer(f, delimiter=delim)
-            # Add agents as the first column
-            for agent, row in zip(agents, output):
-                writer.writerow([agent] + row)
-        return output
+        close_file = False
+        if file_obj is None:
+            file_obj = open('output/scoreboard.csv', 'w', newline='')
+            close_file = True
 
-    def write_json(output, agents):
+        # Combine agents, teams, and output into a single list of tuples
+        combined_data = list(zip(agents, teams, output))
+
+        # Sort by team, then by acs within each team
+        combined_data.sort(key=lambda x: (x[1], -int(x[2][3])))  # Assuming 'acs' is the 4th element in the row
+        
+        writer = csv.writer(file_obj, delimiter=delim)
+        # Write sorted data to CSV
+        for agent, team, row in combined_data:
+            writer.writerow([agent, team] + row)
+
+        if close_file:
+            file_obj.close()
+
+        return combined_data
+
+    def write_json(output, agents, teams):
         """
         Writes the data to a JSON file named "scoreboard.json".
 
         Parameters:
-        data (list): A list of lists containing the data to write to the JSON file.
+        output (list): A list of lists containing the data to write to the JSON file.
+        agents (list): A list of agent names corresponding to each row.
 
         Returns:
-        None
+        dict: The JSON data.
         """
         # Assuming the first row contains headers
-        headers = ["agent","name", "acs", "kill", "death", "assist", "econ_rating", "first_bloods", "plants", "defuses"]
-        json_data = []
-        for agent, row in zip(agents, output):
-            row.insert(0, agent)
-            json_data.append(dict(zip(headers, row)))
+        headers = ["agent", "team", "name", "acs", "kill", "death", "assist", "econ_rating", "first_bloods", "plants", "defuses"]
+        json_data = {}
         
-        with open('output/scoreboard.json', 'w') as f:
-            json.dump(json_data, f, indent=2)
+        for agent, team, row in zip(agents, teams, output):
+            row.insert(0, agent)
+            row.insert(1, team)
+            player_data = dict(zip(headers, row))
+            
+            if team not in json_data:
+                json_data[team] = []
+            json_data[team].append(player_data)
+        
+        # Sort each team's players by 'acs'
+        for team in json_data:
+            json_data[team].sort(key=lambda x: int(x["acs"]), reverse=True)
+        
+        return json_data
 
     def identify_agents(headshots_images_rows):
         """
@@ -570,6 +595,7 @@ class functions:
         reference_images, agent_names = load_images_from_folder(reference_folder)
         
         identified_agents = []
+        identified_teams = []
         n=0
         temp_image_path = './temp_headshot.png'
         for row in headshots_images_rows:
@@ -580,8 +606,10 @@ class functions:
             # Identify the agent
             agent_name = find_matching_agent(temp_image_path, reference_images, agent_names)
             identified_agents.append(agent_name)
-        
+            # Identify the team
+            team_name = assign_team(temp_image_path)
+            identified_teams.append(team_name)
         # remove temp_headshot.png
-        os.remove(temp_image_path)
+        # os.remove(temp_image_path)
         
-        return identified_agents
+        return identified_agents, identified_teams

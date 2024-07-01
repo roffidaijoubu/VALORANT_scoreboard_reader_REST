@@ -11,7 +11,6 @@ import subprocess
 import math
 import csv
 import json
-from tqdm import tqdm
 from PIL import Image,ImageFilter
 from scoreboard_reader import functions as srf
 

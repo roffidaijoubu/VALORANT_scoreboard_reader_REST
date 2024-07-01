@@ -1,9 +1,10 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, Response
 import os
 import cv2
 import numpy as np
 from scoreboard_reader import functions as srf
 import logging
+import io
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -25,15 +26,17 @@ def process_image():
     image_colored = cv2.imread(image_path)
     image, image_colored = srf.find_tables(image, image_colored)
     cell_images_rows, headshots_images_rows = srf.extract_cell_images_from_table(image, image_colored)
-    agents = srf.identify_agents(headshots_images_rows)
+    agents, teams = srf.identify_agents(headshots_images_rows)
     output = srf.read_table_rows(cell_images_rows)
 
     if output_format == 'csv':
-        srf.write_csv(output, agents, ",")
-        return send_file('output/scoreboard.csv', as_attachment=True)
+        csv_content = io.StringIO()
+        srf.write_csv(output, agents, teams, ",", csv_content)
+        csv_content.seek(0)
+        return Response(csv_content.getvalue(), mimetype='text/csv')
     else:
-        srf.write_json(output, agents)
-        return send_file('output/scoreboard.json', as_attachment=True)
+        json_content = srf.write_json(output, agents, teams)
+        return jsonify(json_content)
 
 if __name__ == '__main__':
     if not os.path.exists('output'):
